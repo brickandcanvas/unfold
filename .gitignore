@@ -1,0 +1,7 @@
+.DS_Store
+.build/
+CloseFadeIn.app/
+Package.resolved
+xcuserdata/
+*.xcworkspace
+probe/lid-probe
