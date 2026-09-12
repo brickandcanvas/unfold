@@ -6,6 +6,8 @@ sensor: as the lid opens, a snapshot of your desktop unfolds through a 3D
 perspective tilt, with a bottom-heavy blur and black gradient that recedes to
 reveal the live desktop.
 
+https://github.com/brickandcanvas/unfold/raw/main/showcase.MOV
+
 ## Requirements
 
 - MacBook with a supported hinge angle sensor (M1 or later, and recent Intel
@@ -101,3 +103,10 @@ machine.
   causes TCC to silently deny previously-granted permissions. Signing with
   an Apple Development identity (any team) makes TCC key on the team ID +
   bundle ID instead, so permissions persist.
+
+## Links
+
+- [x.com/petergarcia_dev](https://x.com/petergarcia_dev)
+- [instagram.com/heyitspetergarcia](https://instagram.com/heyitspetergarcia)
+- [instagram.com/afterhours.camera.app](https://instagram.com/afterhours.camera.app)
+- [bricksandcanvas.design](https://bricksandcanvas.design)
