@@ -1,5 +1,7 @@
 import AppKit
+import CoreGraphics
 import QuartzCore
+import ScreenCaptureKit
 
 final class FadeInController: NSObject {
     var onAngleUpdate: ((Double) -> Void)?
@@ -21,13 +23,19 @@ final class FadeInController: NSObject {
 
     func retrySensorPermission() -> Bool { sensor.retryPermission() }
 
+    var hasScreenRecordingPermission: Bool { CGPreflightScreenCaptureAccess() }
+
+    @discardableResult
+    func requestScreenRecordingPermission() -> Bool { CGRequestScreenCaptureAccess() }
+
     var isEnabled: Bool = true {
         didSet { if !isEnabled { hideOverlay() } }
     }
 
-    var gradientStrength: CGFloat = 0.55 {
-        didSet { overlay?.setGradientStrength(gradientStrength) }
+    var flipped: Bool = false {
+        didSet { overlay?.setFlipped(flipped) }
     }
+
 
     func start() {
         if #available(macOS 14.0, *), let screen = OverlayWindow.builtInScreen() {
@@ -50,12 +58,7 @@ final class FadeInController: NSObject {
         tick()
     }
 
-    private var tickCount = 0
     private func tick() {
-        tickCount += 1
-        if tickCount % 120 == 1 {
-            NSLog("CFI tick: count=\(tickCount) enabled=\(isEnabled) status=\(sensor.status)")
-        }
         guard isEnabled else { return }
         let target: Double
         if let start = testStart {
@@ -87,8 +90,9 @@ final class FadeInController: NSObject {
 
     private func showOverlay() {
         if overlay == nil, let screen = OverlayWindow.builtInScreen() {
-            overlay = OverlayWindow(screen: screen)
-            overlay?.setGradientStrength(gradientStrength)
+            let w = OverlayWindow(screen: screen)
+            w.setFlipped(flipped)
+            overlay = w
         }
         guard let overlay, !overlayVisible else { return }
         captureDesktopSnapshot()
@@ -98,11 +102,33 @@ final class FadeInController: NSObject {
 
     private func captureDesktopSnapshot() {
         guard let displayID = OverlayWindow.builtInDisplayID() else { return }
-        DispatchQueue.global(qos: .userInteractive).async { [weak self] in
-            let image = CGDisplayCreateImage(displayID)
-            DispatchQueue.main.async {
+        Task { [weak self] in
+            guard let image = await Self.captureDisplay(displayID: displayID) else { return }
+            await MainActor.run { [weak self] in
                 self?.overlay?.setSnapshot(image)
             }
+        }
+    }
+
+    private static func captureDisplay(displayID: CGDirectDisplayID) async -> CGImage? {
+        do {
+            let content = try await SCShareableContent.excludingDesktopWindows(
+                false, onScreenWindowsOnly: true)
+            guard let display = content.displays.first(where: { $0.displayID == displayID })
+            else { return nil }
+            let ourApp = content.applications.first { $0.bundleIdentifier == Bundle.main.bundleIdentifier }
+            let filter = SCContentFilter(
+                display: display,
+                excludingApplications: ourApp.map { [$0] } ?? [],
+                exceptingWindows: [])
+            let config = SCStreamConfiguration()
+            config.width = display.width * 2
+            config.height = display.height * 2
+            config.showsCursor = false
+            return try await SCScreenshotManager.captureImage(
+                contentFilter: filter, configuration: config)
+        } catch {
+            return nil
         }
     }
 

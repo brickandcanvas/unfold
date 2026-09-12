@@ -5,18 +5,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let controller = FadeInController()
     private let angleItem = NSMenuItem(title: "Lid angle: —", action: nil, keyEquivalent: "")
     private let enabledItem = NSMenuItem(title: "Enabled", action: nil, keyEquivalent: "")
+    private let flipItem = NSMenuItem(title: "Flip direction", action: nil, keyEquivalent: "")
     private let permissionItem = NSMenuItem(
         title: "Grant Input Monitoring permission…", action: nil, keyEquivalent: "")
-    private let defaultsKey = "CFI_Enabled"
-    private let gradientKey = "CFI_GradientStrength"
+    private let screenRecordingItem = NSMenuItem(
+        title: "Grant Screen Recording permission…", action: nil, keyEquivalent: "")
+
+    private let enabledKey = "CFI_Enabled"
+    private let flipKey = "CFI_Flipped"
+
     private var permissionTimer: Timer?
-    private var gradientSlider: NSSlider?
-    private var gradientValueLabel: NSTextField?
+    private var menuRefreshTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        UserDefaults.standard.register(defaults: [defaultsKey: true, gradientKey: 0.55])
-        controller.isEnabled = UserDefaults.standard.bool(forKey: defaultsKey)
-        controller.gradientStrength = CGFloat(UserDefaults.standard.double(forKey: gradientKey))
+        UserDefaults.standard.register(defaults: [enabledKey: true, flipKey: false])
+        controller.isEnabled = UserDefaults.standard.bool(forKey: enabledKey)
+        controller.flipped = UserDefaults.standard.bool(forKey: flipKey)
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         updateStatusIcon()
@@ -28,6 +32,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         enabledItem.state = controller.isEnabled ? .on : .off
         menu.addItem(enabledItem)
 
+        flipItem.action = #selector(toggleFlipped)
+        flipItem.target = self
+        flipItem.state = controller.flipped ? .on : .off
+        menu.addItem(flipItem)
+
         menu.addItem(.separator())
 
         permissionItem.action = #selector(openInputMonitoringSettings)
@@ -35,14 +44,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         permissionItem.isHidden = true
         menu.addItem(permissionItem)
 
+        screenRecordingItem.action = #selector(openScreenRecordingSettings)
+        screenRecordingItem.target = self
+        screenRecordingItem.isHidden = controller.hasScreenRecordingPermission
+        menu.addItem(screenRecordingItem)
+
         menu.addItem(angleItem)
 
         let testItem = NSMenuItem(title: "Test Animation", action: #selector(runTest), keyEquivalent: "t")
         testItem.target = self
         menu.addItem(testItem)
 
-        menu.addItem(.separator())
-        menu.addItem(makeGradientStrengthItem())
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(
             title: "Quit CloseFadeIn", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -55,9 +67,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         controller.start()
         refreshSensorState()
 
+        _ = controller.requestScreenRecordingPermission()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.presentMissingPermissionAlerts()
+        }
+
         if CommandLine.arguments.contains("--test") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
                 self?.controller.playTestAnimation()
+            }
+        }
+    }
+
+    private func presentMissingPermissionAlerts() {
+        if controller.sensorStatus == .permissionDenied {
+            let alert = NSAlert()
+            alert.messageText = "CloseFadeIn needs Input Monitoring permission"
+            alert.informativeText = "To detect when the MacBook lid opens or closes, allow CloseFadeIn under Privacy & Security → Input Monitoring."
+            alert.addButton(withTitle: "Open Settings")
+            alert.addButton(withTitle: "Later")
+            alert.alertStyle = .informational
+            NSApp.activate(ignoringOtherApps: true)
+            if alert.runModal() == .alertFirstButtonReturn {
+                openInputMonitoringSettings()
+            }
+        }
+
+        if !controller.hasScreenRecordingPermission {
+            let alert = NSAlert()
+            alert.messageText = "CloseFadeIn needs Screen Recording permission"
+            alert.informativeText = "To capture your desktop for the fade animation, allow CloseFadeIn under Privacy & Security → Screen Recording."
+            alert.addButton(withTitle: "Open Settings")
+            alert.addButton(withTitle: "Later")
+            alert.alertStyle = .informational
+            NSApp.activate(ignoringOtherApps: true)
+            if alert.runModal() == .alertFirstButtonReturn {
+                openScreenRecordingSettings()
             }
         }
     }
@@ -86,9 +132,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    private var menuRefreshTimer: Timer?
-
     func menuWillOpen(_ menu: NSMenu) {
+        screenRecordingItem.isHidden = controller.hasScreenRecordingPermission
         menuRefreshTimer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self, let angle = self.controller.currentAngle else { return }
             self.angleItem.title = String(format: "Lid angle: %.0f°", angle)
@@ -103,48 +148,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuRefreshTimer = nil
     }
 
-    private func makeGradientStrengthItem() -> NSMenuItem {
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 46))
-
-        let label = NSTextField(labelWithString: "Gradient strength")
-        label.font = NSFont.menuFont(ofSize: 0)
-        label.textColor = .secondaryLabelColor
-        label.frame = NSRect(x: 14, y: 25, width: 160, height: 18)
-        container.addSubview(label)
-
-        let value = NSTextField(labelWithString: String(format: "%.0f%%", controller.gradientStrength * 100))
-        value.font = NSFont.menuFont(ofSize: 0)
-        value.textColor = .secondaryLabelColor
-        value.alignment = .right
-        value.frame = NSRect(x: 174, y: 25, width: 52, height: 18)
-        container.addSubview(value)
-        gradientValueLabel = value
-
-        let slider = NSSlider(
-            value: Double(controller.gradientStrength), minValue: 0, maxValue: 1,
-            target: self, action: #selector(gradientSliderChanged(_:)))
-        slider.isContinuous = true
-        slider.frame = NSRect(x: 14, y: 3, width: 212, height: 20)
-        container.addSubview(slider)
-        gradientSlider = slider
-
-        let item = NSMenuItem()
-        item.view = container
-        return item
-    }
-
-    @objc private func gradientSliderChanged(_ sender: NSSlider) {
-        let v = CGFloat(sender.doubleValue)
-        controller.gradientStrength = v
-        UserDefaults.standard.set(Double(v), forKey: gradientKey)
-        gradientValueLabel?.stringValue = String(format: "%.0f%%", v * 100)
-    }
-
     @objc private func toggleEnabled() {
         controller.isEnabled.toggle()
         enabledItem.state = controller.isEnabled ? .on : .off
-        UserDefaults.standard.set(controller.isEnabled, forKey: defaultsKey)
+        UserDefaults.standard.set(controller.isEnabled, forKey: enabledKey)
         updateStatusIcon()
+    }
+
+    @objc private func toggleFlipped() {
+        controller.flipped.toggle()
+        flipItem.state = controller.flipped ? .on : .off
+        UserDefaults.standard.set(controller.flipped, forKey: flipKey)
     }
 
     @objc private func runTest() {
@@ -155,6 +169,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         _ = controller.retrySensorPermission()
         refreshSensorState()
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc private func openScreenRecordingSettings() {
+        _ = controller.requestScreenRecordingPermission()
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
             NSWorkspace.shared.open(url)
         }
     }

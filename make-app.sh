@@ -35,6 +35,19 @@ cat > "$APP/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-codesign --force --sign - --identifier "$BUNDLE_ID" "$APP"
-echo "Built $APP"
-codesign -dv "$APP" 2>&1 | grep -E "CDHash|Identifier"
+# Prefer a stable signing identity so TCC (Screen Recording / Input Monitoring)
+# permissions persist across rebuilds. Falls back to ad-hoc.
+IDENTITY="${CFI_SIGNING_IDENTITY:-}"
+if [ -z "$IDENTITY" ]; then
+    IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
+        | grep "Apple Development" | head -1 \
+        | sed -E 's/.*"(.*)"/\1/')
+fi
+if [ -n "$IDENTITY" ]; then
+    codesign --force --sign "$IDENTITY" --identifier "$BUNDLE_ID" "$APP"
+    echo "Built $APP (signed: $IDENTITY)"
+else
+    codesign --force --sign - --identifier "$BUNDLE_ID" "$APP"
+    echo "Built $APP (ad-hoc; permissions may not persist across rebuilds)"
+fi
+codesign -dv "$APP" 2>&1 | grep -E "Authority|Identifier"

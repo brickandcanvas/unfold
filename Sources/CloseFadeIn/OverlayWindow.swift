@@ -10,6 +10,15 @@ final class SnapshotView: NSView {
     private let gradient = CAGradientLayer()
     private let ciContext = CIContext()
 
+    private let gradientStrength: CGFloat = 1.0
+    private let blurRadius: Double = 80
+    private let blurLocationOffset: CGFloat = -0.4
+    private let maxTiltDegrees: CGFloat = 30
+
+    private var currentSharpImage: CGImage?
+    private var blurGeneration: UInt64 = 0
+    private var directionFlipped = false
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
@@ -24,6 +33,7 @@ final class SnapshotView: NSView {
         imageLayer.contentsGravity = .resize
         container.addSublayer(imageLayer)
 
+        let mid = 0.6 * gradientStrength
         blurredLayer.frame = container.bounds
         blurredLayer.contentsGravity = .resize
         blurMask.frame = blurredLayer.bounds
@@ -45,14 +55,28 @@ final class SnapshotView: NSView {
         gradient.colors = [
             NSColor.clear.cgColor,
             NSColor.clear.cgColor,
-            NSColor.black.withAlphaComponent(0.35).cgColor,
-            NSColor.black.withAlphaComponent(0.55).cgColor,
+            NSColor.black.withAlphaComponent(mid).cgColor,
+            NSColor.black.withAlphaComponent(gradientStrength).cgColor,
         ]
         gradient.locations = [0.0, 0.0, 0.0, 1.0]
         container.addSublayer(gradient)
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    func setFlipped(_ f: Bool) {
+        guard directionFlipped != f else { return }
+        directionFlipped = f
+        let start = directionFlipped ? CGPoint(x: 0.5, y: 0) : CGPoint(x: 0.5, y: 1)
+        let end = directionFlipped ? CGPoint(x: 0.5, y: 1) : CGPoint(x: 0.5, y: 0)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        blurMask.startPoint = start
+        blurMask.endPoint = end
+        gradient.startPoint = start
+        gradient.endPoint = end
+        CATransaction.commit()
+    }
 
     override func layout() {
         super.layout()
@@ -67,41 +91,24 @@ final class SnapshotView: NSView {
         CATransaction.commit()
     }
 
-    private var gradientStrength: CGFloat = 0.55
-
-    func setGradientStrength(_ strength: CGFloat) {
-        gradientStrength = max(0, min(1, strength))
-        applyGradientColors()
-    }
-
-    private func applyGradientColors() {
-        let mid = 0.6 * gradientStrength
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        gradient.colors = [
-            NSColor.clear.cgColor,
-            NSColor.clear.cgColor,
-            NSColor.black.withAlphaComponent(mid).cgColor,
-            NSColor.black.withAlphaComponent(gradientStrength).cgColor,
-        ]
-        CATransaction.commit()
-    }
-
     func setImage(_ cgImage: CGImage?) {
+        currentSharpImage = cgImage
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         imageLayer.contents = cgImage
         blurredLayer.contents = cgImage
         CATransaction.commit()
+        regenerateBlurredImage()
+    }
 
-        guard let cgImage else { return }
+    private func regenerateBlurredImage() {
+        guard let cgImage = currentSharpImage else { return }
+        blurGeneration &+= 1
+        let gen = blurGeneration
         DispatchQueue.global(qos: .userInteractive).async { [weak self] in
-            guard let self, let blurred = self.makeBlurredImage(from: cgImage) else {
-                NSLog("CFI blur: failed to generate blurred image")
-                return
-            }
-            NSLog("CFI blur: generated blurred image \(blurred.width)x\(blurred.height)")
+            guard let self, let blurred = self.makeBlurredImage(from: cgImage) else { return }
             DispatchQueue.main.async {
+                guard self.blurGeneration == gen else { return }
                 CATransaction.begin()
                 CATransaction.setDisableActions(true)
                 self.blurredLayer.contents = blurred
@@ -113,13 +120,14 @@ final class SnapshotView: NSView {
     private func makeBlurredImage(from cgImage: CGImage) -> CGImage? {
         let ci = CIImage(cgImage: cgImage)
         let extent = ci.extent
+        if blurRadius <= 0.01 { return cgImage }
         guard let clamp = CIFilter(name: "CIAffineClamp") else { return nil }
         clamp.setValue(ci, forKey: kCIInputImageKey)
         clamp.setValue(NSAffineTransform(), forKey: "inputTransform")
         guard let clamped = clamp.outputImage,
               let blur = CIFilter(name: "CIGaussianBlur") else { return nil }
         blur.setValue(clamped, forKey: kCIInputImageKey)
-        blur.setValue(40.0, forKey: kCIInputRadiusKey)
+        blur.setValue(blurRadius, forKey: kCIInputRadiusKey)
         guard let output = blur.outputImage else { return nil }
         return ciContext.createCGImage(output, from: extent)
     }
@@ -128,7 +136,7 @@ final class SnapshotView: NSView {
     func update(progress p: CGFloat) {
         let clamped = min(max(p, 0), 1)
 
-        let tiltDeg: CGFloat = 10 * (1 - clamped)
+        let tiltDeg = maxTiltDegrees * (1 - clamped)
         let tiltRad = tiltDeg * .pi / 180
         let scale: CGFloat = 0.94 + 0.06 * clamped
         var t = CATransform3DIdentity
@@ -137,7 +145,7 @@ final class SnapshotView: NSView {
         t = CATransform3DScale(t, scale, scale, 1)
 
         let band: CGFloat = 0.3
-        let bandCenter = clamped * (1 + band) - band / 2
+        let bandCenter = clamped * (1 + band) - band / 2 + blurLocationOffset
         let a = max(0, bandCenter - band / 2)
         let b = min(1, bandCenter + band / 2)
 
@@ -176,8 +184,8 @@ final class GradientView: NSView {
         snapshot.setImage(image)
     }
 
-    func setGradientStrength(_ strength: CGFloat) {
-        snapshot.setGradientStrength(strength)
+    func setFlipped(_ flipped: Bool) {
+        snapshot.setFlipped(flipped)
     }
 
     // p: 0 = full strength (lid closed), 1 = fully faded (lid open)
@@ -212,8 +220,8 @@ final class OverlayWindow: NSWindow {
         gradientView.setSnapshot(image)
     }
 
-    func setGradientStrength(_ strength: CGFloat) {
-        gradientView.setGradientStrength(strength)
+    func setFlipped(_ flipped: Bool) {
+        gradientView.setFlipped(flipped)
     }
 
     static func builtInScreen() -> NSScreen? {
