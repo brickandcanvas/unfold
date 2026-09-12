@@ -6,7 +6,7 @@ sensor: as the lid opens, a snapshot of your desktop unfolds through a 3D
 perspective tilt, with a bottom-heavy blur and black gradient that recedes to
 reveal the live desktop.
 
-https://github.com/brickandcanvas/unfold/raw/main/showcase.MOV
+<video src="https://github.com/brickandcanvas/unfold/raw/main/showcase.MOV" controls muted playsinline width="720"></video>
 
 ## Requirements
 
@@ -17,24 +17,38 @@ https://github.com/brickandcanvas/unfold/raw/main/showcase.MOV
 
 ## Install
 
+Download the latest **`Unfold.dmg`** from the
+[Releases page](https://github.com/brickandcanvas/unfold/releases/latest),
+open it, and drag `Unfold.app` into your Applications folder. The DMG is
+signed with an Apple Developer ID and notarized by Apple, so it opens
+without Gatekeeper warnings.
+
+### Build from source (optional)
+
 ```
-git clone <your-fork-url> unfold
+git clone https://github.com/brickandcanvas/unfold.git
 cd unfold
 ./make-app.sh
 open Unfold.app
 ```
 
 `make-app.sh` compiles a Swift Package release build, packages it into
-`Unfold.app`, and code-signs it. If it finds an "Apple Development"
-identity in your login keychain, it signs with that so macOS Privacy
-permissions persist across rebuilds. Otherwise it falls back to ad-hoc
-signing (permissions will need to be re-granted after each rebuild).
+`Unfold.app`, and code-signs it. If it finds a "Developer ID Application"
+or "Apple Development" identity in your login keychain, it signs with
+that so macOS Privacy permissions persist across rebuilds. Otherwise it
+falls back to ad-hoc signing (permissions will need to be re-granted after
+each rebuild).
 
 To pin a specific signing identity, set `UNFOLD_SIGNING_IDENTITY`:
 
 ```
 UNFOLD_SIGNING_IDENTITY="Apple Development: Your Name (XXXXXXXXXX)" ./make-app.sh
 ```
+
+To produce a signed + notarized `.dmg` yourself, run `./make-dmg.sh`.
+It requires a `Developer ID Application` cert in your keychain and
+notarization credentials stored under the profile `unfold-notary`
+(`xcrun notarytool store-credentials …`).
 
 ## Permissions
 

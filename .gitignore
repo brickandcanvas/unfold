@@ -7,3 +7,7 @@ Package.resolved
 xcuserdata/
 *.xcworkspace
 probe/lid-probe
+*.cer
+*.certSigningRequest
+*.p12
+Unfold.dmg
