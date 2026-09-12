@@ -1,4 +1,4 @@
-# CloseFadeIn
+# Unfold
 
 A macOS menu bar app that plays an iPhone Duo-style fade-in animation when you
 open your MacBook lid. The transition is driven by the built-in lid angle
@@ -16,22 +16,22 @@ reveal the live desktop.
 ## Install
 
 ```
-git clone <your-fork-url> close-fadein
-cd close-fadein
+git clone <your-fork-url> unfold
+cd unfold
 ./make-app.sh
-open CloseFadeIn.app
+open Unfold.app
 ```
 
 `make-app.sh` compiles a Swift Package release build, packages it into
-`CloseFadeIn.app`, and code-signs it. If it finds an "Apple Development"
+`Unfold.app`, and code-signs it. If it finds an "Apple Development"
 identity in your login keychain, it signs with that so macOS Privacy
 permissions persist across rebuilds. Otherwise it falls back to ad-hoc
 signing (permissions will need to be re-granted after each rebuild).
 
-To pin a specific signing identity, set `CFI_SIGNING_IDENTITY`:
+To pin a specific signing identity, set `UNFOLD_SIGNING_IDENTITY`:
 
 ```
-CFI_SIGNING_IDENTITY="Apple Development: Your Name (XXXXXXXXXX)" ./make-app.sh
+UNFOLD_SIGNING_IDENTITY="Apple Development: Your Name (XXXXXXXXXX)" ./make-app.sh
 ```
 
 ## Permissions
@@ -59,9 +59,9 @@ The menu bar icon (laptop symbol) exposes:
 - **Test Animation** — play the reveal animation without touching the lid.
 - **Grant … permission** — appears only when a permission is missing;
   clicking opens the relevant System Settings pane.
-- **Quit CloseFadeIn**.
+- **Quit Unfold**.
 
-To launch on login, add `CloseFadeIn.app` to System Settings → General →
+To launch on login, add `Unfold.app` to System Settings → General →
 Login Items.
 
 ## How it works
@@ -79,7 +79,7 @@ Login Items.
     `CIGaussianBlur`), and a bottom-heavy black gradient — the blur mask
     and gradient locations sweep with the lid angle.
 - **`SCScreenshotManager`** (ScreenCaptureKit) captures the desktop each
-  time the overlay is about to appear, excluding CloseFadeIn's own windows.
+  time the overlay is about to appear, excluding Unfold's own windows.
 
 ## Development
 

@@ -2,9 +2,9 @@
 import PackageDescription
 
 let package = Package(
-    name: "CloseFadeIn",
+    name: "Unfold",
     platforms: [.macOS(.v14)],
     targets: [
-        .executableTarget(name: "CloseFadeIn", path: "Sources/CloseFadeIn")
+        .executableTarget(name: "Unfold", path: "Sources/Unfold")
     ]
 )

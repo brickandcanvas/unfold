@@ -11,8 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let screenRecordingItem = NSMenuItem(
         title: "Grant Screen Recording permission…", action: nil, keyEquivalent: "")
 
-    private let enabledKey = "CFI_Enabled"
-    private let flipKey = "CFI_Flipped"
+    private let enabledKey = "UF_Enabled"
+    private let flipKey = "UF_Flipped"
 
     private var permissionTimer: Timer?
     private var menuRefreshTimer: Timer?
@@ -57,7 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(
-            title: "Quit CloseFadeIn", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+            title: "Quit Unfold", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         menu.delegate = self
         statusItem.menu = menu
 
@@ -83,8 +83,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func presentMissingPermissionAlerts() {
         if controller.sensorStatus == .permissionDenied {
             let alert = NSAlert()
-            alert.messageText = "CloseFadeIn needs Input Monitoring permission"
-            alert.informativeText = "To detect when the MacBook lid opens or closes, allow CloseFadeIn under Privacy & Security → Input Monitoring."
+            alert.messageText = "Unfold needs Input Monitoring permission"
+            alert.informativeText = "To detect when the MacBook lid opens or closes, allow Unfold under Privacy & Security → Input Monitoring."
             alert.addButton(withTitle: "Open Settings")
             alert.addButton(withTitle: "Later")
             alert.alertStyle = .informational
@@ -96,8 +96,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if !controller.hasScreenRecordingPermission {
             let alert = NSAlert()
-            alert.messageText = "CloseFadeIn needs Screen Recording permission"
-            alert.informativeText = "To capture your desktop for the fade animation, allow CloseFadeIn under Privacy & Security → Screen Recording."
+            alert.messageText = "Unfold needs Screen Recording permission"
+            alert.informativeText = "To capture your desktop for the fade animation, allow Unfold under Privacy & Security → Screen Recording."
             alert.addButton(withTitle: "Open Settings")
             alert.addButton(withTitle: "Later")
             alert.alertStyle = .informational
@@ -182,6 +182,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateStatusIcon() {
         let name = controller.isEnabled ? "laptopcomputer" : "laptopcomputer.slash"
-        statusItem.button?.image = NSImage(systemSymbolName: name, accessibilityDescription: "CloseFadeIn")
+        statusItem.button?.image = NSImage(systemSymbolName: name, accessibilityDescription: "Unfold")
     }
 }

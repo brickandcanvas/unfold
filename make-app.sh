@@ -4,11 +4,11 @@ cd "$(dirname "$0")"
 
 swift build -c release
 
-APP="CloseFadeIn.app"
-BUNDLE_ID="com.bricksandcanvas.closefadein"
+APP="Unfold.app"
+BUNDLE_ID="com.bricksandcanvas.unfold"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp .build/release/CloseFadeIn "$APP/Contents/MacOS/CloseFadeIn"
+cp .build/release/Unfold "$APP/Contents/MacOS/Unfold"
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -16,11 +16,11 @@ cat > "$APP/Contents/Info.plist" <<EOF
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>CloseFadeIn</string>
+    <string>Unfold</string>
     <key>CFBundleIdentifier</key>
     <string>$BUNDLE_ID</string>
     <key>CFBundleName</key>
-    <string>CloseFadeIn</string>
+    <string>Unfold</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -37,7 +37,7 @@ EOF
 
 # Prefer a stable signing identity so TCC (Screen Recording / Input Monitoring)
 # permissions persist across rebuilds. Falls back to ad-hoc.
-IDENTITY="${CFI_SIGNING_IDENTITY:-}"
+IDENTITY="${UNFOLD_SIGNING_IDENTITY:-}"
 if [ -z "$IDENTITY" ]; then
     IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
         | grep "Apple Development" | head -1 \
