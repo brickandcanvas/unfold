@@ -6,7 +6,15 @@ sensor: as the lid opens, a snapshot of your desktop unfolds through a 3D
 perspective tilt, with a bottom-heavy blur and black gradient that recedes to
 reveal the live desktop.
 
-<video src="https://github.com/brickandcanvas/unfold/raw/main/showcase.MOV" controls muted playsinline width="720"></video>
+
+
+https://github.com/user-attachments/assets/23f56f71-b564-4a05-be97-757bed7497f0
+
+
+
+
+
+
 
 ## Requirements
 
